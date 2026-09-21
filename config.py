@@ -24,11 +24,19 @@ CORPUS = os.getenv("AI201_CORPUS", "campus_life")
 
 
 # ─── Chunking (Milestone 3) ──────────────────────────────────────────────────
-# These are deliberately plain, generic numbers. Milestone 3 is where you
-# replace them with numbers that fit the documents you actually read.
+# Measured against campus_life rather than chosen for being round numbers.
+# `chunker.py::split_documents` cuts on paragraph boundaries, so CHUNK_SIZE is
+# a ceiling that catches an unusually long paragraph, not the usual cut point.
 
-CHUNK_SIZE = 800        # characters per chunk
-CHUNK_OVERLAP = 120     # characters shared between neighbouring chunks
+# The longest paragraph in campus_life is 373 characters and the longest title
+# is 47; 373 + 47 + the blank line between them is 422. 450 therefore leaves
+# every real paragraph intact while still capping anything pathological.
+CHUNK_SIZE = 450        # characters per chunk (a ceiling, rarely reached)
+
+# Zero on purpose. Overlap exists to repair context lost when a cut lands in
+# the middle of a thought; this chunker only cuts at paragraph breaks and
+# copies the document title onto every chunk, so there is nothing to repair.
+CHUNK_OVERLAP = 0       # characters shared between neighbouring chunks
 
 
 # ─── Retrieval (Milestone 4) ─────────────────────────────────────────────────

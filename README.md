@@ -1,6 +1,6 @@
 # The Unofficial Guide
 
-<!-- Replace this line with your name and which corpus you picked. -->
+David Arutyunyan — corpus: `campus_life`
 
 > **This file is your submission.** Fill it in as you go — most sections get
 > written during the milestone that produces them, not at the end.
@@ -29,54 +29,107 @@
 
 ## Chunking Strategy
 
-**Chunk size:**
-**Overlap:**
+**Chunk size:** 450 characters — a ceiling, not the usual cut point
+**Overlap:** 0 characters
 
-<!-- What about YOUR documents made you pick these numbers? Short posts and
-     long sectioned guides don't want the same chunking, and "800 seemed
-     reasonable" earns nothing. Point at something you noticed when you read
-     the documents in Milestone 1.
+Chunks are cut on **paragraph boundaries**, and every chunk carries its
+document's title line. The function is `chunker.py::split_documents`.
 
-     If you changed your mind partway through, say so and say why. That's worth
-     more than pretending you got it right first time.
+**What the starter did.** `fallback_split` cut fixed 800-character windows with
+120 characters of overlap. On `campus_life` it never cut anything: the longest
+document is 549 characters, so all 88 documents came out as 88 chunks. One post
+about a dorm was a single chunk covering its build year, its best feature, its
+worst feature, the laundry prices and the noise — five unrelated facts in one
+retrievable unit.
 
-     Milestone 3. -->
+**What I changed and why.** These documents already mark their own topic
+boundaries with blank lines. Measuring the corpus: 88 documents contain 271
+paragraph blocks — exactly one title block each plus 183 body paragraphs,
+median 112 characters. The authors put one thought in each paragraph, so
+paragraphs are the natural unit and splitting on them needs no guesswork.
+
+The title has to travel with each piece, and that is the part I would have got
+wrong without looking at the documents. Seven buildings each have a laundry
+paragraph, and they differ only in price. Stripped of its heading, *"Machines
+take $1.50 wash, $1.25 dry, coin or card"* could be any of the seven, and a
+question naming a building could not retrieve the right one. Prepending the
+title costs at most 47 characters — the longest title in the corpus.
+
+**Why 450.** The longest body paragraph is 373 characters and the longest title
+is 47; with the blank line between them that is 422. A 450-character ceiling
+therefore leaves every real paragraph intact and only fires on something
+abnormal, in which case `_split_long` breaks between sentences rather than
+mid-word.
+
+**Why no overlap.** Overlap repairs context lost when a cut lands inside a
+thought. This chunker only cuts where the author already stopped, and copies
+the title onto every chunk, so there is nothing to repair. Overlap here would
+duplicate whole paragraphs into neighbouring chunks and make the same text
+compete with itself at retrieval.
+
+**Paragraphs shorter than 60 characters** are grouped onto their neighbour so
+no chunk is a stub. Only 10 of the 183 body paragraphs fall below that.
+
+**Result:** 88 documents → 173 chunks, averaging 175 characters (shortest 86,
+longest 397), against the baseline's 88 chunks averaging 317 (shortest 178,
+longest 549).
+
+**Tradeoff discovered.** Chunks are now roughly half the size, so each one
+carries less surrounding material. For this corpus that is the right direction
+— the facts are one-sentence facts — but on a corpus where an answer spanned
+several paragraphs this strategy would cut through it, and overlap would start
+to earn its keep.
 
 ## Sample Chunks
 
-<!-- Five chunks, pasted as text. Label each one and name the file it came from
-     AND the function that produced it — the grader checks your code against
-     what you claim here.
+Five chunks as printed by `python app.py chunks -n 5`, which samples by stride
+across the whole corpus rather than letting me pick favourites.
 
-     `python app.py chunks -n 5` prints all three for you. Copy them straight
-     across.
-
-     Milestone 3. -->
-
-**Chunk 1** — source: `` — produced by: ``
+**Chunk 1** — source: `admin_add_drop_deadline.txt#0` — produced by: `chunker.py::split_documents`
 
 ```
+On the add/drop deadline
+
+You can add a course through the end of the second week. Dropping is a longer window — through the end of week six — but a drop after week two shows as a W on your transcript. Nothing anywhere on the registrar's site says this plainly, and students find out from each other.
 ```
 
-**Chunk 2** — source: `` — produced by: ``
+**Chunk 2** — source: `course_cs_340_exams.txt#1` — produced by: `chunker.py::split_documents`
 
 ```
+CS 340 Databases — assessment
+
+Start the term project in week three, not week eight; everyone learns this the hard way.
 ```
 
-**Chunk 3** — source: `` — produced by: ``
+**Chunk 3** — source: `course_stat_150_exams.txt#0` — produced by: `chunker.py::split_documents`
 
 ```
+STAT 150 Applied Statistics — assessment
+
+Three equally weighted midterms, no final. No curve, but the lowest midterm is dropped.
 ```
 
-**Chunk 4** — source: `` — produced by: ``
+**Chunk 4** — source: `housing_aldridge_hall.txt#0` — produced by: `chunker.py::split_documents`
 
 ```
+Aldridge Hall — what it's actually like
+
+I lived here my sophomore year. Built 1968, renovated 2019. Rooms are doubles with a shared bathroom per floor.
 ```
 
-**Chunk 5** — source: `` — produced by: ``
+**Chunk 5** — source: `housing_morrow_house.txt#3` — produced by: `chunker.py::split_documents`
 
 ```
+Morrow House — what it's actually like
+
+Laundry costs $1.50 wash, $1.25 dry, coin or card. On noise: loud until about 1am on weekends, no enforced quiet hours.
 ```
+
+All five carry a complete thought and name their own subject without needing a
+neighbouring chunk. Chunk 5 is the one the old chunker got wrong: under
+`fallback_split` that laundry line sat inside a single 461-character chunk
+alongside the building's room layout, its housing-tier price and its damp
+problem. The new chunker splits that document into four chunks, one per topic.
 
 ## Sample Answer
 
