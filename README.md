@@ -21,11 +21,15 @@ David Arutyunyan — corpus: `campus_life`
 
 ## What This Does
 
-<!-- Three or four sentences. Which corpus you picked, and the kinds of
-     questions your system answers. Write it for someone who has never seen
-     this repo.
-
-     Milestone 5. -->
+This is a question-answering system over `campus_life`, a corpus of 88 short
+posts written student-to-student about one university — dining halls, dorms,
+courses, and the administrative rules nobody explains properly. It answers
+factual questions about those topics: deadlines, prices, opening hours, shuttle
+frequencies, laundry costs, how a course is assessed. Every answer is written
+only from chunks retrieved out of the corpus, and names the document it came
+from, so any claim can be traced back to a file. When nothing in the corpus is
+close enough to the question, a relevance gate refuses it before the language
+model is called at all, rather than letting the model guess.
 
 ## Chunking Strategy
 
@@ -189,18 +193,42 @@ All five out-of-scope questions were refused by the gate, and each run reported
 
 ## How I Used AI
 
-<!-- Two specific moments. For each: what you asked for, what came back, and
-     what you changed about it.
+**1. Getting the environment to build on Windows.** I asked Claude to install
+a Python version the course supports and get the starter running. It checked
+my machine, found only Python 3.14 installed — which this course's pinned
+packages don't support — and installed 3.13. `pip install -r requirements.txt`
+then failed part-way through with `Microsoft Visual C++ 14.0 or greater is
+required`, while building `chroma-hnswlib`. Rather than tell me to install
+multi-gigabyte C++ build tools, Claude queried PyPI for which Python versions
+that package actually ships a Windows wheel for, and found there is exactly
+one: cp311. Not 3.12, not 3.13. So it installed Python 3.11.9, rebuilt the
+virtual environment on it, and `test.py` went to 10 passed / 0 failed with no
+compiler involved and no change to any project file. The useful part was that
+the first fix attempt was wrong and the diagnosis came from checking the
+package index instead of guessing.
 
-     "I asked Claude to write the chunking function from my notes. It ignored
-     the overlap, so I added that myself" is the level of detail we're after.
-     "I used AI to help me code" is not.
+**2. Pressure-testing my test questions before I ran any of them.** I asked
+Claude to check that each of my five `expects` phrases was actually supported
+by the corpus file I claimed it came from. Four checked out. On the fifth — my
+STAT 150 question with `expects="dropped"` — it searched the whole corpus and
+found that `course_phys_130_exams.txt` contains the same rule, *"the lowest
+midterm is dropped"*. So an answer drawn from the wrong course would still
+have contained my expected phrase and scored as correct. Claude gave me three
+options: keep it, reword the question around `"equally weighted"` (which it
+verified appears only in the two STAT 150 files), or replace it. I chose to
+replace it with the Kestrel Commons question using `$12.50`, which appears in
+exactly one document in the entire corpus. That also gave my five questions a
+fifth area of the corpus — dining — that none of the other four touched.
 
-     Milestone 5. -->
-
-**1.**
-
-**2.**
+I also used Claude to pressure-test my acceptance criteria after I had written
+them. I wrote all five targets and all five justifications myself, including
+Criteria 4 and 5, then asked it to tell me how it would test each one using
+only the words in the sentence. It did not rewrite them; it identified what
+each sentence leaves undefined — for example that Criterion 2's "names at
+least one source document" doesn't say whether the CLI's own `Sources
+retrieved:` line counts or only the model's text, which matters because the
+CLI prints that line either way. I left the wording as written and recorded
+the ambiguities instead.
 
 <!-- ── Stretch features ─────────────────────────────────────────────────────
      Doing one? Say so here BEFORE you start. A feature this README never
