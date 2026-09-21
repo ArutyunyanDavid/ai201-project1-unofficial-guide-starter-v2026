@@ -133,30 +133,59 @@ problem. The new chunker splits that document into four chunks, one per topic.
 
 ## Sample Answer
 
-<!-- One complete question and answer, pasted as text, with the source line
-     visible. Milestone 4. -->
-
-**Question:**
+**Question:** What does it cost to dry a load of laundry in Morrow House?
 
 **Answer:**
 
 ```
+  (best distance 0.182, cutoff 0.6)
+
+It costs $1.25 to dry a load of laundry in Morrow House.
+
+Sources: housing_morrow_house.txt and housing_morrow_house_laundry.txt
+
+Sources retrieved: housing_aldridge_hall_laundry.txt, housing_innisfree_hall_laundry.txt, housing_morrow_house.txt, housing_morrow_house_laundry.txt, housing_old_brewhouse_laundry.txt
+
+1 model calls this session, 505 tokens (466 in, 39 out)
 ```
 
-**My relevance cutoff:**
+This is the question worth showing, because the prompt it produced contained
+four other buildings' laundry paragraphs — Old Brewhouse at $1.50 dry,
+Aldridge Hall at $1.50, Innisfree Hall at $1.75 — and the answer still returned
+Morrow House's $1.25 and cited the two Morrow House files. Retrieval put both
+Morrow documents at ranks 1 and 2 (0.182 and 0.210) ahead of every other
+building (0.335 and worse), which is the title prefix in the chunker doing its
+job.
 
-<!-- The number you set in config.py, and how you got there.
+**My relevance cutoff:** 0.6, unchanged from the starter default — but now
+measured rather than assumed.
 
-     You ran five questions your corpus covers and the five in OUT_OF_SCOPE
-     that it clearly doesn't, and wrote down the best distance for each. What
-     did those two groups look like? Where was the gap? Put the actual numbers
-     here — the table below wants all ten rows.
-
-     Milestone 4. -->
+I ran my five test questions and the five `OUT_OF_SCOPE` questions and recorded
+the best distance for each. The two groups do not overlap anywhere near the
+cutoff: covered questions land between 0.180 and 0.364, out-of-scope between
+0.825 and 0.923, leaving a gap of 0.46 with nothing in it. 0.6 sits close to
+the midpoint of that gap (the true midpoint is 0.594), so it has about 0.23 of
+margin on both sides. Any value from roughly 0.37 to 0.82 would score
+identically on these ten questions; I kept 0.6 because the midpoint is the
+most robust choice for questions I haven't tried, and moving it would have been
+a change with no evidence behind it.
 
 | Question | In corpus? | Best distance |
 |---|---|---|
-|  |  |  |
+| If I drop a course, after which point does it show as a W on my transcript? | yes | 0.2547 |
+| How often does the campus shuttle run on weekends? | yes | 0.1799 |
+| What time does the library close during reading week? | yes | 0.2192 |
+| What does it cost to dry a load of laundry in Morrow House? | yes | 0.1821 |
+| What does a meal at Kestrel Commons cost without a meal swipe? | yes | 0.3643 |
+| What is the capital of Mongolia? | no | 0.8246 |
+| How do I change the oil in a diesel engine? | no | 0.9228 |
+| Who won the 1994 World Cup? | no | 0.8859 |
+| What is the recommended dosage of ibuprofen for a headache? | no | 0.8487 |
+| How do I write a for loop in Rust? | no | 0.8635 |
+
+All five out-of-scope questions were refused by the gate, and each run reported
+`0 model calls this session` — the refusal happens in `gate.py::check` before
+`generate.py` is ever reached, so a refused question costs no API quota.
 
 ## How I Used AI
 
