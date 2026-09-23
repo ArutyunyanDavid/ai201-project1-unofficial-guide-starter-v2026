@@ -41,7 +41,11 @@ CHUNK_OVERLAP = 0       # characters shared between neighbouring chunks
 
 # ─── Retrieval (Milestone 4) ─────────────────────────────────────────────────
 
-TOP_K = 5               # how many chunks to pull back per question
+# Unit 2's baseline put the answer-bearing chunk at rank 1 for all five test
+# questions. Ranks 4 and 5 were distractors, so keeping them added prompt text
+# without adding answer evidence. Three results retain some context while
+# removing the least relevant 40% of the baseline prompt's retrieved chunks.
+TOP_K = 3               # how many chunks to pull back per question
 
 # The relevance gate. If the best chunk is further away than this, the system
 # refuses to answer instead of handing the model thin material.

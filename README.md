@@ -239,117 +239,258 @@ the ambiguities instead.
 
 # Unit 2
 
-<!-- These sections get ADDED to what's already above. Don't delete or rewrite
-     unit 1 — the point is that someone can see what you said before you knew
-     how it went. -->
+I ran the baseline with `python run_eval.py --label before`: five questions,
+three uncached generations per question, plus one deterministic pass over the
+five out-of-scope questions. The complete raw output is in
+[`results/run_2026-09-23_1820_before.md`](results/run_2026-09-23_1820_before.md).
+
+The baseline predated `scorer.py`, so its generated report has blank score
+cells and preserves the 15 answers for manual judgment. I counted a source for
+Criteria 2 and 5 only when the **generated answer itself** named the file; the
+CLI's automatic `Sources retrieved:` list did not count. Retrieval, the gate,
+and chunking are deterministic, so Criteria 1, 3, and 4 have the same measured
+count in all three columns.
 
 ## Run Log — Before
 
-<!-- Your five criteria, three runs each. `python run_eval.py --label before`
-     runs the questions, puts the OUT_OF_SCOPE ones through the gate, and
-     writes it all into results/ for you. Targets come from criteria.md; the
-     verdict column is your call.
-
-     Criterion 3 is measured in one deterministic pass rather than three, so
-     the same number goes in all three run columns. That's correct, not lazy.
-
-     Milestone 1. -->
-
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunks contain the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2. Every generated answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. Chunks contain enough context to stand alone | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 5. Named sources actually support the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 
-<!-- Underneath, paste the REAL output for each criterion from one of your
-     runs — the actual text your system produced, not a description of it.
-     Name the file and function that produced it. -->
+### Evidence from the Before Run
+
+**Criterion 1 — answer-bearing chunks.** `store.py::search`, called by
+`run_eval.py::run_once`, put the supporting chunk at rank 1 for every question:
+
+| Expected fact | Rank-1 source | Best distance |
+|---|---|---:|
+| `week two` | `admin_add_drop_deadline.txt` | 0.2547 |
+| `40 minutes` | `transit_shuttle.txt` | 0.1799 |
+| `10pm` | `study_library_hours.txt` | 0.2192 |
+| `$1.25` | `housing_morrow_house_laundry.txt` | 0.1821 |
+| `$12.50` | `dining_kestrel_commons.txt` | 0.3643 |
+
+The real retrieval output for the weakest match was:
+
+```text
+Question: What does a meal at Kestrel Commons cost without a meal swipe?
+
+#   distance   source
+1   0.3643     dining_kestrel_commons.txt
+
+Gate: best distance 0.364 is under the 0.6 cutoff
+```
+
+The retrieved chunk, produced by `chunker.py::split_documents`, contains:
+
+```text
+Kestrel Commons
+
+Hours are 7:00am to 9:00pm weekdays, 9:00am to 8:00pm weekends.
+Costs one meal swipe, or $12.50 cash.
+```
+
+**Criterion 2 — source named in the generated answer.** One real baseline
+answer from `generate.py::answer_from_chunks` was:
+
+```text
+If you drop a course after week two, it shows as a W on your transcript.
+
+Source: admin_add_drop_deadline.txt
+```
+
+All 15 generated answers named at least one file in this way.
+
+**Criterion 3 — out-of-scope refusal.** The real output from
+`run_eval.py::check_out_of_scope` was:
+
+```text
+refused  (best distance 0.825)  What is the capital of Mongolia?
+refused  (best distance 0.923)  How do I change the oil in a diesel engine?
+refused  (best distance 0.886)  Who won the 1994 World Cup?
+refused  (best distance 0.849)  What is the recommended dosage of ibuprofen for a headache?
+refused  (best distance 0.864)  How do I write a for loop in Rust?
+-> gate refused 5 of 5
+```
+
+`gate.py::check` stopped all five before generation.
+
+**Criterion 4 — chunks stand alone.** I reran `app.py::cmd_chunks` with
+`python app.py chunks -n 5`. It deterministically printed the same five full
+chunks preserved above under **Sample Chunks**:
+
+```text
+173 chunks total. Showing 5, spread across the corpus.
+
+Chunk 1 | admin_add_drop_deadline.txt#0
+Chunk 2 | course_cs_340_exams.txt#1
+Chunk 3 | course_stat_150_exams.txt#0
+Chunk 4 | housing_aldridge_hall.txt#0
+Chunk 5 | housing_morrow_house.txt#3
+```
+
+All five include a title naming the subject and a complete body thought. None
+requires the preceding or following chunk, so the result is 5/5.
+
+**Criterion 5 — citation support.** This baseline answer named two sources:
+
+```text
+It costs $1.25 to dry a load of laundry in Morrow House.
+
+Sources: housing_morrow_house_laundry.txt and housing_morrow_house.txt
+```
+
+The actual text loaded by `ingest.py::load_documents` from the first named file
+is:
+
+```text
+Laundry in Morrow House
+
+Machines take $1.50 wash, $1.25 dry, coin or card.
+```
+
+I made the same comparison for every answer. All 15 answers named a retrieved
+file containing the expected fact.
 
 ## Verdicts
 
-<!-- MET or MISSED for each of the five, against the target you wrote last
-     unit — not a new one. Plus a sentence on how you decided. That sentence
-     matters most where it was close.
-
-     If your target said 4 of 5 and your runs came out 4, 3, 4, that's a MISS.
-     The target has to hold, not show up occasionally.
-
-     Milestone 2. -->
-
 | # | Criterion | Verdict | How I decided |
 |---|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
-| 4 |  |  |  |
-| 5 |  |  |  |
+| 1 | Retrieved chunks contain the answer | MET | Every expected fact appeared in the rank-1 chunk, so all three runs were 5/5 against a 4/5 target. |
+| 2 | Every answer names a source | MET | The generated text—not the CLI footer—named a source in all 15 answers, so every run was 5/5. |
+| 3 | Gate stops out-of-corpus questions | MET | `gate.py::check` refused 5/5; their distances (0.825–0.923) were all above 0.6. |
+| 4 | Chunks stand alone | MET | All five stride-sampled chunks had a subject-bearing title and one complete thought, for 5/5 against a 4/5 target. |
+| 5 | Named sources support the answer | MET | For all 15 answers, at least one filename in the generated answer was retrieved and its document contained the expected fact. |
 
 ## Diagnoses
 
-<!-- For each miss: which stage caused it, and how. The stage alone isn't
-     enough — you need the mechanism.
+None of the five criteria missed. Four targets were deliberately 4/5 and the
+observed result was 5/5, so those targets were conservative. I would tighten
+Criterion 5 to 5/5: the pipeline always has source metadata, and an answer
+without a supporting citation should not be accepted even occasionally.
 
-     Not a diagnosis: "Question 3 didn't work."
-     A diagnosis:     "Question 3 asks about laundry costs. The answer is in
-                       one sentence that got split across two chunks, so
-                       neither chunk on its own contains it."
+There was still a measurable retrieval-stage weakness hidden by the perfect
+verdicts: **low precision below rank 1**. With `TOP_K = 5`, the shuttle answer
+was followed by four chunks about jobs, dining, library hours, and walking.
+The library answer was followed by three dorm-noise chunks and a library-holds
+chunk. For the Morrow House laundry question, ranks 3–5 described other dorms
+with different prices. Generation ignored these distractors in all 15 runs,
+but they added tokens and gave the model conflicting numbers it did not need.
 
-     The five stages: loading → chunking → embedding → retrieval → generation.
-
-     Look for a pattern. If three misses all ask about numbers, that's one
-     problem, not three.
-
-     Missed nothing? Say so, then say honestly whether your targets were set
-     low, and which one you'd tighten and to what.
-
-     Milestone 3. -->
+Loading and chunking were not the cause—the answer was intact in every rank-1
+chunk. The embedding was also separating the right item. The issue was the
+retrieval setting: asking for five results after the useful evidence had
+already been found.
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** I changed `config.py::TOP_K` from 5 to 3. I left the
+corpus, chunker, embedding model, relevance cutoff, generation prompt, and test
+questions unchanged, so the before/after comparison isolates retrieval depth.
 
-**Why I picked it:**
+I also added `scorer.py::judge` as evaluation instrumentation. It does not run
+inside the question-answering pipeline. During `run_eval.py`, it marks a run as
+passing only when the answer contains the predeclared expected fact, a
+retrieved chunk contains that fact, and the generated answer names that
+chunk's source.
 
-<!-- Connect it to a specific diagnosis above in one sentence. If you can't,
-     you picked a fix because it sounded impressive. -->
+**Why I picked it:** Every baseline answer-bearing chunk ranked first, while
+ranks 4 and 5 added distractors. Keeping three results preserves fallback
+context but removes 40% of the retrieved chunks from every prompt. This
+directly addresses the retrieval-precision diagnosis above.
 
 ### Run Log — After
 
-<!-- Same format, same five criteria, three runs each.
-     `python run_eval.py --label after` -->
+The final raw output is in
+[`results/run_2026-09-23_1834_after-final.md`](results/run_2026-09-23_1834_after-final.md).
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunks contain the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2. Every generated answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. Chunks contain enough context to stand alone | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 5. Named sources actually support the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 
-**Did it help?**
+**Did it help?** Yes. The final scorer reported 15/15 passes, the gate still
+refused 5/5 unsupported questions, and every original criterion stayed at
+5/5. At the same time, measured input usage fell from 6,729 to 4,896 tokens—a
+reduction of 1,833 tokens, or 27.2%. Output stayed essentially identical (436
+tokens before and 436 after), so total usage fell from 7,165 to 5,332 tokens,
+or 25.6%. Best distances did not move because the nearest chunk did not change.
 
-<!-- Say plainly whether it did, and how you know. If it made things worse,
-     say that — a change that backfired, honestly reported, earns full credit
-     and is more interesting than one that worked. What matters is that you can
-     tell.
+There was one useful evaluation failure on the way. The first automated after
+run is preserved in
+[`results/run_2026-09-23_1829_after.md`](results/run_2026-09-23_1829_after.md).
+Its first answer correctly said "after the end of the second week" and cited
+`admin_add_drop_deadline.txt`, but the first scorer required the literal phrase
+`week two` and marked it false. That was a scorer defect, not a generation
+failure. I changed the scorer generically to treat cardinal/ordinal forms and
+word ordering as equivalent, while still requiring both a supporting chunk
+and its filename in the answer, then re-ran all 15 generations. The final run
+passed all 15. I kept the failed log because it is part of the measurement →
+diagnosis → fix → re-measurement trail.
 
-     Milestone 4. -->
+The final real runner output was:
+
+```text
+If I drop a course, after which point does it show as a W on my transcript?
+  run 1: pass  (best distance 0.255)
+  run 2: pass  (best distance 0.255)
+  run 3: pass  (best distance 0.255)
+
+... four more questions, each pass/pass/pass ...
+
+-> gate refused 5 of 5
+15 model calls this session, 5332 tokens (4896 in, 436 out)
+```
 
 ## What's Still Broken
 
-<!-- For each criterion still missed after your fix: what you'd do about it,
-     and why you stopped where you did.
+No acceptance criterion is still missed, but the evaluation does not prove the
+system is finished:
 
-     "I ran out of time" is fine if it's true. Pretending nothing is left is
-     not.
+- Five hand-written questions are a small, familiar test set. I would add
+  held-out paraphrases and questions with near-matching but wrong entities to
+  test whether the rank-1 result stays correct outside this set.
+- `TOP_K = 3` still admits distractors: the shuttle prompt still includes jobs
+  and dining, for example. A reranker or hybrid lexical/vector search could
+  improve precision, measured with precision@3 or mean reciprocal rank.
+- `scorer.py` checks the predeclared fact and a supporting citation, but it
+  cannot detect an extra unsupported sentence. Structured citations tied to
+  chunk IDs would make that stricter than free-form filenames.
+- Criterion 4 inspected 5 of 173 chunks. A full automated boundary check could
+  catch an unusual chunk that the stride sample misses, although judging
+  whether a thought is complete still needs a person or a stronger rubric.
 
-     Milestone 5. -->
+I stopped after one controlled pipeline change because changing retrieval,
+chunking, and prompting together would make the before/after result impossible
+to attribute.
 
 ## What I'd Do Differently
 
-<!-- Knowing what you know now — which of your five criteria would you write
-     differently, and why?
+I would replace Criterion 5 with this stricter and less ambiguous version:
 
-     Milestone 5. -->
+> Across all 15 generated answers (five questions × three uncached runs), every
+> answer must contain the predeclared answer fact and name at least one
+> retrieved source file whose text contains that fact. The CLI's automatic
+> `Sources retrieved:` line does not count.
+
+The original 4-of-5 wording allows one unsupported citation even though source
+metadata is always available, and it does not say whether the target applies
+once or across repeated generations. The revised criterion defines the unit
+being counted, makes the target 15/15, and says exactly what evidence counts.
+
+## How I Used AI in Unit 2
+
+I used OpenAI Codex to execute the evaluation commands, compare the raw output
+against the five criteria, implement and test the deterministic scorer, and
+help organize this write-up. The counts, answers, distances, citations, and
+token totals above come from the saved run logs rather than generated or
+estimated results. I kept the scorer's initial false-negative run in
+`results/` so the record includes the failed measurement and the reason the
+scoring rule changed.
