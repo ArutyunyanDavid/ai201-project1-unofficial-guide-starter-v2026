@@ -390,8 +390,11 @@ inspect a predetermined stride sample of 20 chunks and require at least 18 to
 name their subject, contain complete sentences, and need no neighboring chunk
 for interpretation.
 
-There was still a measurable retrieval-stage weakness hidden by the perfect
-verdicts: **low precision below rank 1**. With `TOP_K = 5`, the shuttle answer
+### Observed Weakness: Retrieval Precision Below Rank 1
+
+This is not a missed acceptance criterion. It is a measurable efficiency and
+risk issue revealed by examining the successful baseline. With `TOP_K = 5`,
+the shuttle answer
 was followed by four chunks about jobs, dining, library hours, and walking.
 The library answer was followed by three dorm-noise chunks and a library-holds
 chunk. For the Morrow House laundry question, ranks 3–5 described other dorms
