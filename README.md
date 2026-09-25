@@ -366,12 +366,29 @@ file containing the expected fact.
 | 4 | Chunks stand alone | MET | All five stride-sampled chunks had a subject-bearing title and one complete thought, for 5/5 against a 4/5 target. |
 | 5 | Named sources support the answer | MET | For all 15 answers, at least one filename in the generated answer was retrieved and its document contained the expected fact. |
 
+### Opposite-Verdict Check
+
+Before accepting those verdicts, I tested the strongest reasonable case for
+calling each one MISSED:
+
+| Criterion | Strongest case for MISSED | Why the evidence still supports MET |
+|---|---|---|
+| 1 | The raw report lists retrieved filenames rather than the complete retrieved chunks. | A separate top-5 retrieval audit inspected the actual text and found every expected fact in the rank-1 chunk. |
+| 2 | The criterion does not say whether the CLI's automatic `Sources retrieved:` footer counts. | I excluded that footer; all 15 model-generated answers still named a source file. |
+| 3 | The out-of-scope table records gate decisions but not the returned refusal sentence. | Exercising the unchanged `run_once` refusal path returned the exact required sentence for all five questions. |
+| 4 | "Complete thought" is subjective, and the Morrow sample combines laundry and noise. | Both facts are understandable without a neighboring chunk; even rejecting that sample would leave 4/5, which meets the original target. |
+| 5 | A multi-source answer might need every named file, rather than only one, to support it. | The only multi-source answers named the two Morrow files, and both contain the stated `$1.25` drying price. |
+
 ## Diagnoses
 
 None of the five criteria missed. Four targets were deliberately 4/5 and the
-observed result was 5/5, so those targets were conservative. I would tighten
-Criterion 5 to 5/5: the pipeline always has source metadata, and an answer
-without a supporting citation should not be accepted even occasionally.
+observed result was 5/5, so those targets were conservative. Criterion 4 is the
+least demanding and least reproducible: it inspects only 5 of 173 chunks, and
+"complete thought" is not operationally defined. In a future iteration I
+would keep the historical criterion and add a stricter version underneath it:
+inspect a predetermined stride sample of 20 chunks and require at least 18 to
+name their subject, contain complete sentences, and need no neighboring chunk
+for interpretation.
 
 There was still a measurable retrieval-stage weakness hidden by the perfect
 verdicts: **low precision below rank 1**. With `TOP_K = 5`, the shuttle answer
