@@ -440,8 +440,10 @@ directly addresses the retrieval-precision diagnosis above.
 
 ### Run Log — After
 
-The final raw output is in
-[`results/run_2026-09-23_1834_after-final.md`](results/run_2026-09-23_1834_after-final.md).
+The authoritative fresh AFTER output is in
+[`results/run_2026-09-25_1224_after.md`](results/run_2026-09-25_1224_after.md).
+It records `TOP_K = 3`, three uncached runs for each question, every generated
+answer, every retrieved source list, and the out-of-scope gate evaluation.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
@@ -451,12 +453,70 @@ The final raw output is in
 | 4. Chunks contain enough context to stand alone | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 | 5. Named sources actually support the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 
-**Did it help?** Yes. The final scorer reported 15/15 passes, the gate still
-refused 5/5 unsupported questions, and every original criterion stayed at
-5/5. At the same time, measured input usage fell from 6,729 to 4,896 tokens—a
-reduction of 1,833 tokens, or 27.2%. Output stayed essentially identical (436
-tokens before and 436 after), so total usage fell from 7,165 to 5,332 tokens,
-or 25.6%. Best distances did not move because the nearest chunk did not change.
+Representative real output from that file is:
+
+```text
+Question: What does a meal at Kestrel Commons cost without a meal swipe?
+Run: 1
+Best distance: 0.3643 (passed the gate)
+Sources retrieved: dining_kestrel_commons.txt,
+                   dining_kestrel_commons_followup.txt,
+                   dining_north_kitchen.txt
+
+A meal at Kestrel Commons costs $12.50 cash without a meal swipe.
+
+Source: dining_kestrel_commons.txt
+```
+
+The same run's question-level summary was:
+
+```text
+If I drop a course, after which point does it show as a W on my transcript?     pass / pass / pass
+How often does the campus shuttle run on weekends?                              pass / pass / pass
+What time does the library close during reading week?                           pass / pass / pass
+What does it cost to dry a load of laundry in Morrow House?                     pass / pass / pass
+What does a meal at Kestrel Commons cost without a meal swipe?                  pass / pass / pass
+Out-of-scope gate                                                               refused 5 of 5
+```
+
+### Before vs. After
+
+| Criterion | Before | After | Change |
+|---|---|---|---|
+| 1. Retrieved chunks contain the answer | 5/5, 5/5, 5/5 | 5/5, 5/5, 5/5 | No regression |
+| 2. Every generated answer names a source | 5/5, 5/5, 5/5 | 5/5, 5/5, 5/5 | No regression |
+| 3. Gate stops out-of-corpus questions | 5/5, 5/5, 5/5 | 5/5, 5/5, 5/5 | No regression |
+| 4. Chunks contain enough context to stand alone | 5/5, 5/5, 5/5 | 5/5, 5/5, 5/5 | Unchanged; chunking was held constant |
+| 5. Named sources actually support the answer | 5/5, 5/5, 5/5 | 5/5, 5/5, 5/5 | No regression |
+
+| Measurement | Before | After | Change |
+|---|---:|---:|---:|
+| Retrieved chunks per prompt | 5 | 3 | -2 (-40.0%) |
+| Model calls | 15 | 15 | 0 |
+| Input tokens | 6,729 | 4,896 | -1,833 (-27.2%) |
+| Output tokens | 436 | 441 | +5 (+1.1%) |
+| Total tokens | 7,165 | 5,337 | -1,828 (-25.5%) |
+
+**What diagnosed problem was this intended to fix?** The baseline retrieved
+the correct evidence at rank 1 but still sent unrelated or conflicting lower
+ranks to the model.
+
+**What happened before?** All criteria passed, but every prompt included five
+chunks and the 15 calls consumed 7,165 tokens.
+
+**What happened after?** All criteria still passed, while each prompt included
+three chunks and the same 15 calls consumed 5,337 tokens.
+
+**Did the target improve?** Yes. Retrieved context fell by 40%, input use fell
+by 27.2%, and total use fell by 25.5%. Best distances were unchanged because
+the same nearest chunks remained rank 1.
+
+**Did another criterion regress?** No. Every criterion remained 5/5 in every
+run, and the gate still refused all five unsupported questions.
+
+**Did the improvement help overall?** Yes. It reduced unnecessary context and
+token use without changing the measured answer, citation, gate, or chunk
+quality outcomes.
 
 There was one useful evaluation failure on the way. The first automated after
 run is preserved in
@@ -466,23 +526,9 @@ Its first answer correctly said "after the end of the second week" and cited
 `week two` and marked it false. That was a scorer defect, not a generation
 failure. I changed the scorer generically to treat cardinal/ordinal forms and
 word ordering as equivalent, while still requiring both a supporting chunk
-and its filename in the answer, then re-ran all 15 generations. The final run
-passed all 15. I kept the failed log because it is part of the measurement →
+and its filename in the answer, then re-ran all 15 generations. The fresh
+authoritative run passed all 15. I kept the failed log because it is part of the measurement →
 diagnosis → fix → re-measurement trail.
-
-The final real runner output was:
-
-```text
-If I drop a course, after which point does it show as a W on my transcript?
-  run 1: pass  (best distance 0.255)
-  run 2: pass  (best distance 0.255)
-  run 3: pass  (best distance 0.255)
-
-... four more questions, each pass/pass/pass ...
-
--> gate refused 5 of 5
-15 model calls this session, 5332 tokens (4896 in, 436 out)
-```
 
 ## What's Still Broken
 
@@ -508,24 +554,29 @@ to attribute.
 
 ## What I'd Do Differently
 
-I would replace Criterion 5 with this stricter and less ambiguous version:
+In a future iteration, I would redesign Criterion 4 while preserving its
+original historical wording in `criteria.md`. I would add this stricter,
+repeatable version underneath it:
 
-> Across all 15 generated answers (five questions × three uncached runs), every
-> answer must contain the predeclared answer fact and name at least one
-> retrieved source file whose text contains that fact. The CLI's automatic
-> `Sources retrieved:` line does not count.
+> Using 20 chunks selected by a predetermined stride across the full corpus,
+> at least 18 must name their subject, contain complete sentences, and be
+> understandable without either neighboring chunk.
 
-The original 4-of-5 wording allows one unsupported citation even though source
-metadata is always available, and it does not say whether the target applies
-once or across repeated generations. The revised criterion defines the unit
-being counted, makes the target 15/15, and says exactly what evidence counts.
+The original criterion samples only 5 of 173 chunks and uses the subjective
+phrase "one complete thought." The future version increases coverage, fixes
+the sample selection in advance, and defines observable qualities more
+clearly. I did not alter the Project 1 criterion for this experiment.
 
 ## How I Used AI in Unit 2
 
-I used OpenAI Codex to execute the evaluation commands, compare the raw output
-against the five criteria, implement and test the deterministic scorer, and
-help organize this write-up. The counts, answers, distances, citations, and
-token totals above come from the saved run logs rather than generated or
-estimated results. I kept the scorer's initial false-negative run in
-`results/` so the record includes the failed measurement and the reason the
-scoring rule changed.
+I used OpenAI Codex to execute the evaluation commands, organize the repeated
+results, compare raw evidence with the five original criteria, suggest several
+plausible explanations for the observed retrieval pattern, implement the one
+selected top-k change, and help structure the before/after write-up. I reviewed
+and confirmed the verdicts, selected the retrieval-precision diagnosis, and
+chose the single improvement before it was treated as final.
+
+The counts, answers, distances, citations, and token totals above come from
+the genuine saved runs and command output rather than invented or estimated
+results. I kept the scorer's initial false-negative run in `results/` so the
+record includes the failed measurement and why the evaluation rule changed.
