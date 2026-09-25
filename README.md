@@ -423,6 +423,21 @@ ranks 4 and 5 added distractors. Keeping three results preserves fallback
 context but removes 40% of the retrieved chunks from every prompt. This
 directly addresses the retrieval-precision diagnosis above.
 
+### Controlled Experiment Record
+
+- **Improvement:** reduce retrieval depth from `TOP_K = 5` to `TOP_K = 3`.
+- **Problem it targets:** avoidable low precision below the correct rank-1
+  result, which added unrelated or conflicting context to generation.
+- **System file changed:** `config.py` only.
+- **BEFORE behavior:** retrieve five chunks for every question.
+- **AFTER behavior:** retrieve three chunks for every question.
+- **Held constant:** corpus, five questions, five criteria, chunking, embedding
+  model, vector index, cosine distance, relevance cutoff, grounding prompt,
+  generation model, and generation behavior.
+- **Evaluation-only instrumentation:** `scorer.py` reports repeatable verdicts
+  during `run_eval.py`; it is not imported by the user-facing question-answer
+  pipeline and does not change retrieval or generation.
+
 ### Run Log — After
 
 The final raw output is in
